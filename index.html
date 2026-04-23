@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GLOCK B | Skill-Based Arena</title>
+    <style>
+        :root { --red: #ff0000; --gold: #ffcc00; --bg: #0a0a0a; --card: #151515; --green: #00ff41; }
+        body { background: var(--bg); color: #fff; font-family: 'Impact', sans-serif; margin: 0; text-transform: uppercase; }
+        .page { display: none; padding: 20px; padding-bottom: 100px; }
+        .page.active { display: block; }
+        .btn-main { width: 100%; background: var(--red); color: #fff; border: none; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; }
+        input, select { width: 100%; background: #222; border: 1px solid #444; color: var(--green); padding: 15px; margin-bottom: 10px; box-sizing: border-box; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 15px 0; border-top: 2px solid var(--red); }
+        .nav-item { color: #888; font-size: 11px; cursor: pointer; }
+        .nav-item.active { color: var(--red); }
+        .salon-card { background: #111; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        
+        /* Styles Quiz */
+        #quiz-zone { display: none; text-align: center; }
+        .q-card { background: var(--card); padding: 20px; border-radius: 10px; border: 1px solid var(--red); margin-top: 20px; }
+        .opt-btn { width: 100%; background: #222; color: #fff; border: 1px solid #444; padding: 15px; margin-top: 10px; border-radius: 5px; cursor: pointer; font-family: 'Impact'; text-transform: uppercase; font-size: 16px; transition: 0.2s; }
+        .opt-btn:active { background: var(--red); border-color: #fff; }
+        #q-timer { color: var(--gold); font-size: 20px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-page" class="page active">
+        <h1 style="text-align:center; color:var(--red); letter-spacing:5px;">GLOCK B</h1>
+        <input type="email" id="email" placeholder="EMAIL">
+        <input type="password" id="password" placeholder="MOT DE PASSE">
+        <input type="text" id="ref-code" placeholder="CODE PARRAIN (OPTIONNEL)">
+        <button class="btn-main" onclick="auth('login')">CONNEXION</button>
+        <button class="btn-main" style="background:#333" onclick="auth('register')">INSCRIPTION</button>
+    </div>
+
+    <div id="main-app" style="display:none;">
+        <div id="combat" class="page active">
+            <div id="lobby-ui">
+                <div style="background:var(--card); padding:15px; border-radius:10px; margin-bottom:20px;">
+                    <div style="display:flex; justify-content:space-between"><span>SOLDE:</span> <span id="u-bal" style="color:var(--gold)">0 XOF</span></div>
+                    <div style="font-size:12px; margin-top:10px;">MISÉ: <span id="u-wag">0</span> / <span id="u-req" style="color:var(--red)">0</span> XOF (70%)</div>
+                </div>
+                <input type="number" id="bet-amt" placeholder="MISE (100 - 100k)">
+                <div class="salon-card" onclick="join(1, 3)"><span>DUEL 1V1 (3 Q)</span> <span style="color:var(--red)">MISE</span></div>
+                <div class="salon-card" onclick="join(5, 5)"><span>BR 5 JOUEURS (5 Q)</span> <span style="color:var(--red)">MISE</span></div>
+                <div class="salon-card" onclick="join(10, 5)"><span>BR 10 (2 GAGNANTS)</span> <span style="color:var(--red)">MISE</span></div>
+                <div class="salon-card" onclick="join(50, 15)"><span>SURVIVOR 50 (15 Q)</span> <span style="color:var(--red)">MISE</span></div>
+            </div>
+
+            <div id="quiz-zone">
+                <div id="q-timer">PRÊT ?</div>
+                <div class="q-card">
+                    <p id="q-text" style="font-size: 18px; line-height: 1.4;"></p>
+                    <div id="options-container"></div>
+                </div>
+                <p style="margin-top:20px; font-size: 12px; color: #666;">ÉTAPE: <span id="q-step">1</span></p>
+            </div>
+        </div>
+
+        <div id="depot" class="page">
+            <h2>DÉPÔT (MIN 600)</h2>
+            <input type="number" id="depot-amt" placeholder="MONTANT">
+            <button class="btn-main" onclick="startDepot()">PAYER VIA MONEY FUSION</button>
+        </div>
+
+        <div id="retrait" class="page">
+            <h2>RETRAIT</h2>
+            <select id="ret-meth">
+                <option value="mobile">MOBILE MONEY (1000)</option>
+                <option value="crypto">CRYPTO (6000)</option>
+            </select>
+            <input type="number" id="ret-val" placeholder="MONTANT">
+            <button class="btn-main" onclick="requestWithdrawal()">DEMANDER LE RETRAIT</button>
+        </div>
+
+        <div class="nav-bar">
+            <div class="nav-item active" onclick="showP('combat', this)">COMBAT</div>
+            <div class="nav-item" onclick="showP('depot', this)">DÉPÔT</div>
+            <div class="nav-item" onclick="showP('retrait', this)">RETRAIT</div>
+        </div>
+    </div>
+
+    <script>
+        const API = "https://glockb.onrender.com"; 
+        let userId = localStorage.getItem('glock_uid');
+        let currentQuestions = [];
+        let currentStep = 0;
+        let userAnswers = {};
+
+        async function auth(type) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const referrer = document.getElementById('ref-code').value;
+            if(!email || !password) return alert("Champs vides !");
+            try {
+                const res = await fetch(`${API}/${type}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password, referrer})
+                });
+                const data = await res.json();
+                if(data.success) { localStorage.setItem('glock_uid', data.user_id); location.reload(); }
+                else { alert(data.error); }
+            } catch(e) { alert("Erreur serveur"); }
+        }
+
+        async function loadProfile() {
+            if(!userId) return;
+            document.getElementById('auth-page').classList.remove('active');
+            document.getElementById('main-app').style.display = 'block';
+            try {
+                const res = await fetch(`${API}/get_profile?id=${userId}`);
+                const d = await res.json();
+                document.getElementById('u-bal').innerText = d.balance + " XOF";
+                document.getElementById('u-wag').innerText = d.wagered;
+                document.getElementById('u-req').innerText = d.required.toFixed(0);
+            } catch(e) { }
+        }
+
+        async function join(mode, count) {
+            const amount = document.getElementById('bet-amt').value;
+            if(!amount || amount < 100) return alert("Mise minimum 100 XOF");
+
+            const res = await fetch(`${API}/place_bet`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: userId, amount})
+            });
+            const d = await res.json();
+            
+            if(d.success) {
+                startMatch(count);
+            } else { alert(d.error); }
+        }
+
+        async function startMatch(count) {
+            document.getElementById('lobby-ui').style.display = 'none';
+            document.getElementById('quiz-zone').style.display = 'block';
+            
+            // On récupère les questions sécurisées du serveur
+            const res = await fetch(`${API}/get_quiz?count=${count}`);
+            const data = await res.json();
+            
+            currentQuestions = data.questions;
+            currentStep = 0;
+            userAnswers = {};
+            showQuestion();
+        }
+
+        function showQuestion() {
+            if(currentStep >= currentQuestions.length) return finishMatch();
+            
+            const q = currentQuestions[currentStep];
+            document.getElementById('q-step').innerText = `${currentStep + 1} / ${currentQuestions.length}`;
+            document.getElementById('q-text').innerText = q.question;
+            
+            const container = document.getElementById('options-container');
+            container.innerHTML = "";
+            
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "opt-btn";
+                btn.innerText = opt;
+                btn.onclick = () => {
+                    userAnswers[q.id] = opt;
+                    currentStep++;
+                    showQuestion();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        async function finishMatch() {
+            document.getElementById('quiz-zone').innerHTML = "<h2>ANALYSE DES RÉSULTATS...</h2>";
+            
+            const res = await fetch(`${API}/submit_score`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: userId,
+                    answers: userAnswers
+                })
+            });
+            const d = await res.json();
+            
+            if(d.result === "win") {
+                alert(`VICTOIRE ! Score: ${d.score}/${currentQuestions.length}`);
+            } else if(d.result === "draw") {
+                alert("MATCH NUL ! On relance le duel.");
+            } else {
+                alert("YOU LOOSE ! Travaille encore ta culture.");
+            }
+            location.reload();
+        }
+
+        function showP(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            el.classList.add('active');
+        }
+
+        if(userId) loadProfile();
+    </script>
+</body>
+</html>
