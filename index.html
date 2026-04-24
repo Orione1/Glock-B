@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GLOCK B | Skill-Based Arena</title>
+    <style>
+        :root { --red: #ff0000; --gold: #ffcc00; --bg: #0a0a0a; --card: #151515; --green: #00ff41; }
+        body { background: var(--bg); color: #fff; font-family: 'Impact', sans-serif; margin: 0; text-transform: uppercase; overflow-x: hidden; }
+        .page { display: none; padding: 20px; padding-bottom: 100px; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .btn-main { width: 100%; background: var(--red); color: #fff; border: none; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; transition: 0.2s; }
+        .btn-main:active { transform: scale(0.98); opacity: 0.8; }
+        input, select { width: 100%; background: #222; border: 1px solid #444; color: var(--green); padding: 15px; margin-bottom: 10px; box-sizing: border-box; border-radius: 5px; font-family: sans-serif; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 15px 0; border-top: 2px solid var(--red); z-index: 100; }
+        .nav-item { color: #888; font-size: 11px; cursor: pointer; text-align: center; }
+        .nav-item.active { color: var(--red); }
+        .salon-card { background: #111; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        
+        /* Styles Quiz */
+        #quiz-zone { display: none; text-align: center; }
+        .q-card { background: var(--card); padding: 20px; border-radius: 10px; border: 1px solid var(--red); margin-top: 20px; }
+        .opt-btn { width: 100%; background: #222; color: #fff; border: 1px solid #444; padding: 15px; margin-top: 10px; border-radius: 5px; cursor: pointer; font-family: 'Impact'; text-transform: uppercase; font-size: 16px; transition: 0.2s; }
+        .opt-btn:active { background: var(--red); border-color: #fff; }
+        #q-timer { color: var(--gold); font-size: 20px; margin-bottom: 10px; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--red); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="auth-page" class="page active">
+        <h1 style="text-align:center; color:var(--red); letter-spacing:5px; margin-top:40px;">GLOCK B</h1>
+        <p style="text-align:center; font-size:12px; color:#666; margin-bottom:30px;">Dominez l'Arène par la Culture</p>
+        <input type="email" id="email" placeholder="EMAIL">
+        <input type="password" id="password" placeholder="MOT DE PASSE">
+        <input type="text" id="ref-code" placeholder="CODE PARRAIN (OPTIONNEL)">
+        <button class="btn-main" onclick="auth('login')">CONNEXION</button>
+        <button class="btn-main" style="background:#333" onclick="auth('register')">INSCRIPTION</button>
+    </div>
+
+    <div id="main-app" style="display:none;">
+        <div id="combat" class="page active">
+            <div id="lobby-ui">
+                <div style="background:var(--card); padding:15px; border-radius:10px; margin-bottom:20px; border: 1px solid #222;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>SOLDE :</span> 
+                        <span id="u-bal" style="color:var(--gold); font-size:20px;">0 XOF</span>
+                    </div>
+                    <div style="font-size:10px; margin-top:10px; color:#888;">
+                        JOUÉ: <span id="u-wag" style="color:#fff">0</span> / REQUIS: <span id="u-req" style="color:var(--red)">0</span> XOF
+                    </div>
+                </div>
+                
+                <label style="font-size:12px; color:var(--red)">MISE POUR CE COMBAT :</label>
+                <input type="number" id="bet-amt" placeholder="MONTANT (MIN 100 XOF)" value="100" style="margin-top:5px;">
+                
+                <div style="margin-top:20px;">
+                    <div class="salon-card" onclick="join(1, 3)"><span>DUEL RAPIDE (3 QS)</span> <span style="color:var(--green)">100+ XOF</span></div>
+                    <div class="salon-card" onclick="join(1, 5)"><span>BATTLE (5 QS)</span> <span style="color:var(--gold)">GAIN x2</span></div>
+                    <div class="salon-card" onclick="join(1, 10)"><span>ELIMINATION (10 QS)</span> <span style="color:var(--red)">GAIN x5</span></div>
+                </div>
+                <button onclick="logout()" style="background:none; border:none; color:#444; width:100%; margin-top:20px; font-size:10px;">DÉCONNEXION</button>
+            </div>
+
+            <div id="quiz-zone">
+                <div id="q-timer">PRÉPARE-TOI...</div>
+                <div class="q-card">
+                    <p id="q-text" style="font-size: 18px; line-height: 1.4; min-height: 60px;"></p>
+                    <div id="options-container"></div>
+                </div>
+                <p style="margin-top:20px; font-size: 14px; color: var(--gold);">QUESTION <span id="q-step">1</span></p>
+            </div>
+        </div>
+
+        <div id="depot" class="page">
+            <h2 style="color:var(--red)">RECHARGER</h2>
+            <input type="number" id="depot-amt" placeholder="MONTANT XOF">
+            <button class="btn-main" onclick="alert('Redirection vers la passerelle...')">PAYER MOBILE MONEY</button>
+        </div>
+
+        <div id="retrait" class="page">
+            <h2 style="color:var(--red)">RETRAIT</h2>
+            <select id="ret-meth">
+                <option value="mobile">MOBILE MONEY (ORANGE/MOOV/MTN)</option>
+                <option value="crypto">USDT (TRC20)</option>
+            </select>
+            <input type="number" id="ret-val" placeholder="MONTANT">
+            <button class="btn-main" onclick="alert('Demande envoyée à Orione')">VALIDER</button>
+        </div>
+
+        <div class="nav-bar">
+            <div class="nav-item active" onclick="showP('combat', this)">COMBAT</div>
+            <div class="nav-item" onclick="showP('depot', this)">DÉPÔT</div>
+            <div class="nav-item" onclick="showP('retrait', this)">RETRAIT</div>
+        </div>
+    </div>
+
+    <script>
+        const API = "https://glockb.onrender.com"; 
+        let userId = localStorage.getItem('glock_uid');
+        let currentQuestions = [];
+        let currentStep = 0;
+        let userAnswers = {};
+
+        async function auth(type) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const referrer = document.getElementById('ref-code').value;
+            if(!email || !password) return alert("Champs vides !");
+            
+            try {
+                const res = await fetch(`${API}/${type}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password, referrer})
+                });
+                const data = await res.json();
+                if(data.success || data.user_id) { 
+                    localStorage.setItem('glock_uid', data.user_id || data.success); 
+                    window.location.reload(); 
+                } else { alert(data.error); }
+            } catch(e) { alert("Serveur GLOCK B hors ligne."); }
+        }
+
+        async function loadProfile() {
+            if(!userId) return;
+            document.getElementById('auth-page').classList.remove('active');
+            document.getElementById('main-app').style.display = 'block';
+            try {
+                const res = await fetch(`${API}/get_profile?id=${userId}`);
+                const d = await res.json();
+                document.getElementById('u-bal').innerText = Math.floor(d.balance) + " XOF";
+                document.getElementById('u-wag').innerText = Math.floor(d.wagered);
+                document.getElementById('u-req').innerText = Math.floor(d.required);
+            } catch(e) { console.log("Erreur profil"); }
+        }
+
+        async function join(mode, count) {
+            const amount = document.getElementById('bet-amt').value;
+            if(amount < 100) return alert("Minimum 100 XOF");
+            try {
+                const res = await fetch(`${API}/place_bet`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: userId, amount: amount})
+                });
+                const d = await res.json();
+                if(d.success) startMatch(count);
+                else alert(d.error);
+            } catch(e) { alert("Erreur mise"); }
+        }
+
+        async function startMatch(count) {
+            document.getElementById('lobby-ui').style.display = 'none';
+            document.getElementById('quiz-zone').style.display = 'block';
+            try {
+                const res = await fetch(`${API}/get_quiz?count=${count}`);
+                const data = await res.json();
+                if(data.questions) {
+                    currentQuestions = data.questions;
+                    currentStep = 0;
+                    userAnswers = {};
+                    showQuestion();
+                }
+            } catch(e) { location.reload(); }
+        }
+
+        function showQuestion() {
+            if(currentStep >= currentQuestions.length) return finishMatch();
+            const q = currentQuestions[currentStep];
+            document.getElementById('q-step').innerText = (currentStep + 1) + " / " + currentQuestions.length;
+            document.getElementById('q-text').innerText = q.question;
+            const container = document.getElementById('options-container');
+            container.innerHTML = "";
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "opt-btn";
+                btn.innerText = opt;
+                btn.onclick = () => { userAnswers[q.id] = opt; currentStep++; showQuestion(); };
+                container.appendChild(btn);
+            });
+        }
+
+        async function finishMatch() {
+            document.getElementById('quiz-zone').innerHTML = "<div class='loader'></div><p>VÉRIFICATION DU SCORE...</p>";
+            try {
+                const res = await fetch(`${API}/submit_score`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: userId, answers: userAnswers })
+                });
+                const d = await res.json();
+                if(d.result === "win") alert("VICTOIRE ! Gain crédité.");
+                else alert("DÉFAITE. Entraîne-toi encore !");
+                location.reload(); 
+            } catch(e) { location.reload(); }
+        }
+
+        function logout() { localStorage.clear(); location.reload(); }
+        function showP(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            el.classList.add('active');
+        }
+        if(userId) loadProfile();
+    </script>
+</body>
+</html>
